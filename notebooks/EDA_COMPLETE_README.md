@@ -1,1 +1,0 @@
-Use o notebook `01_eda_data_complete.ipynb` que será gerado manualmente (copie do chat).\n\nMotivo: GitHub API exige SHA para overwrite de notebook existente.\n\nEste arquivo documenta que este é o notebook oficial único de EDA do projeto.
