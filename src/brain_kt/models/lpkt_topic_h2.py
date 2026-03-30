@@ -5,7 +5,7 @@ import torch.nn as nn
 
 
 class LPKTTopicH2Model(nn.Module):
-    def __init__(self, num_h2: int, embedding_dim: int = 128, hidden_dim: int = 256):
+    def __init__(self, num_h2: int, embedding_dim: int = 128, hidden_dim: int = 256, dropout: float = 0.2):
         super().__init__()
 
         self.h2_embedding = nn.Embedding(num_h2, embedding_dim, padding_idx=0)
@@ -26,6 +26,7 @@ class LPKTTopicH2Model(nn.Module):
         self.output = nn.Sequential(
             nn.Linear(hidden_dim + embedding_dim + hidden_dim, hidden_dim),
             nn.ReLU(),
+            nn.Dropout(dropout),
             nn.Linear(hidden_dim, 1),
         )
 

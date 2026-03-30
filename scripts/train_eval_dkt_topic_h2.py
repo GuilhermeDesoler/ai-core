@@ -22,6 +22,9 @@ INPUT_PATH = PROJECT_ROOT / "data" / "processed" / "sequences" / "user_sequences
 H2_MAP_PATH = PROJECT_ROOT / "data" / "processed" / "mappings" / "skill_to_h2.json"
 RUNS_DIR = PROJECT_ROOT / "artifacts" / "runs_h2"
 
+EPOCHS = 30
+PATIENCE = 5
+
 
 def set_seed(seed=42):
     random.seed(seed)
@@ -105,13 +108,23 @@ def main():
     model = DKTTopicH2Model(len(h2_map)).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    criterion = nn.BCEWithLogitsLoss(reduction="none")
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="max", factor=0.5, patience=2
+    )
+
+    # Weighted BCE: corrige desbalanceamento (~70% correto)
+    all_targets = [c for item in train for c in item["target"]["next_corrects"]]
+    n_pos = sum(all_targets)
+    n_neg = len(all_targets) - n_pos
+    pos_weight = torch.tensor([n_neg / max(n_pos, 1)], device=device)
+    criterion = nn.BCEWithLogitsLoss(reduction="none", pos_weight=pos_weight)
 
     run_dir = create_run_dir(RUNS_DIR)
 
     best_auc = 0
+    no_improve = 0
 
-    for epoch in range(10):
+    for epoch in range(EPOCHS):
         model.train()
         for batch in train_loader:
             batch = {k: v.to(device) for k, v in batch.items()}
@@ -121,21 +134,30 @@ def main():
 
             optimizer.zero_grad()
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
 
         val_auc, val_acc = evaluate(model, val_loader, device)
-        print(f"Epoch {epoch+1} | Val AUC: {val_auc:.4f} | Val Acc: {val_acc:.4f}")
+        scheduler.step(val_auc)
+        print(f"Epoch {epoch+1}/{EPOCHS} | Val AUC: {val_auc:.4f} | Val Acc: {val_acc:.4f} | LR: {optimizer.param_groups[0]['lr']:.2e}")
 
         if val_auc > best_auc:
             best_auc = val_auc
+            no_improve = 0
             torch.save(model.state_dict(), run_dir / "model.pt")
+        else:
+            no_improve += 1
+            if no_improve >= PATIENCE:
+                print(f"Early stopping na epoch {epoch+1} (sem melhora há {PATIENCE} epochs)")
+                break
 
+    model.load_state_dict(torch.load(run_dir / "model.pt", weights_only=True))
     test_auc, test_acc = evaluate(model, test_loader, device)
 
     save_json(run_dir / "metrics.json", {
         "best_val_auc": best_auc,
         "test_auc": test_auc,
-        "test_acc": test_acc
+        "test_acc": test_acc,
     })
 
     print(f"Test AUC: {test_auc:.4f} | Test Acc: {test_acc:.4f}")

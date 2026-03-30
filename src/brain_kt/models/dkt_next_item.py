@@ -5,7 +5,7 @@ import torch.nn as nn
 
 
 class DKTNextItemModel(nn.Module):
-    def __init__(self, num_questions, num_skills, emb_dim=128, hidden_dim=256):
+    def __init__(self, num_questions, num_skills, emb_dim=128, hidden_dim=256, dropout=0.2):
         super().__init__()
 
         self.q_emb = nn.Embedding(num_questions, emb_dim, padding_idx=0)
@@ -17,8 +17,14 @@ class DKTNextItemModel(nn.Module):
         self.input_proj = nn.Linear(emb_dim * 2 + 3, emb_dim)
 
         self.lstm = nn.LSTM(emb_dim, hidden_dim, batch_first=True)
+        self.dropout = nn.Dropout(dropout)
 
-        self.output = nn.Linear(hidden_dim + emb_dim * 2, 1)
+        self.output = nn.Sequential(
+            nn.Linear(hidden_dim + emb_dim * 2, hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, 1),
+        )
 
     def forward(self, batch):
         q = batch["question_ids"]
@@ -36,6 +42,7 @@ class DKTNextItemModel(nn.Module):
         x = self.input_proj(x)
 
         h, _ = self.lstm(x)
+        h = self.dropout(h)
 
         nq_emb = self.next_q_emb(nq)
         ns_emb = self.next_s_emb(ns)
