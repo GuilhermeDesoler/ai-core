@@ -10,7 +10,7 @@ SRC_PATH = PROJECT_ROOT / "src"
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
-from data.sequences.build_training_sequences import build_training_sequences
+from brain_kt.preprocessing.build_training_sequences import build_training_sequences
 
 
 INPUT_PATH = PROJECT_ROOT / "data" / "processed" / "sequences" / "user_sequences.json"
