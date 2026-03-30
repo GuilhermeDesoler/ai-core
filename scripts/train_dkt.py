@@ -55,11 +55,15 @@ def main():
 
         total_loss = 0.0
 
-        for batch in dataloader:
+        for batch_idx, batch in enumerate(dataloader):
             batch = {k: v.to(device) for k, v in batch.items()}
 
             logits = model(batch)
             targets = batch["targets"]
+
+            if epoch == 0 and batch_idx == 0:
+                preds = torch.sigmoid(logits)
+                print(f"Pred mean: {preds.mean().item():.4f}")
 
             mask = batch["mask"]
 
