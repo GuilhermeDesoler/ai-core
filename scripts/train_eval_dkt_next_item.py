@@ -13,7 +13,7 @@ from brain_kt.models.dkt_next_item import DKTNextItemModel
 from brain_kt.utils.experiment_tracking import create_run_dir, save_json
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-INPUT_PATH = PROJECT_ROOT / "data" / "processed" / "user_sequences.json"
+INPUT_PATH = PROJECT_ROOT / "data" / "processed" / "sequences" / "user_sequences.json"
 RUNS_DIR = PROJECT_ROOT / "artifacts" / "runs"
 
 
