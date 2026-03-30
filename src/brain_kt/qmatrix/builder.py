@@ -45,8 +45,12 @@ class QMatrixArtifacts:
 
 def _read_json(path: str | Path) -> Any:
     path = Path(path)
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except UnicodeDecodeError:
+        with path.open("r", encoding="latin-1") as f:
+            return json.load(f)
 
 
 # ============================================================
