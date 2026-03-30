@@ -11,6 +11,7 @@ sys.path.append(str(PROJECT_ROOT / "src"))
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
+from sklearn.metrics import roc_auc_score
 
 from brain_kt.dataset.kt_topic_h2_dataset import KTTopicH2Dataset
 from brain_kt.models.lpkt_topic_h2 import LPKTTopicH2Model
@@ -28,18 +29,11 @@ def set_seed(seed=42):
 
 
 def compute_auc(probs, targets):
-    probs = probs.detach().cpu()
-    targets = targets.detach().cpu()
-    pos = probs[targets == 1]
-    neg = probs[targets == 0]
-    if len(pos) == 0 or len(neg) == 0:
+    probs = probs.detach().cpu().numpy()
+    targets = targets.detach().cpu().numpy()
+    if len(set(targets)) < 2:
         return 0.5
-    correct = 0
-    total = 0
-    for p in pos:
-        correct += (p > neg).sum().item()
-        total += len(neg)
-    return correct / total
+    return float(roc_auc_score(targets, probs))
 
 
 def evaluate(model, loader, device):
@@ -85,12 +79,16 @@ def main():
     all_h2 = [h for item in dataset for h in item["input"]["h2_ids"]]
     h2_map = build_h2_map(all_h2)
 
-    random.shuffle(dataset)
-    n = len(dataset)
-
-    train = dataset[: int(0.7 * n)]
-    val = dataset[int(0.7 * n): int(0.85 * n)]
-    test = dataset[int(0.85 * n):]
+    # Student-level split: evita data leakage entre janelas do mesmo usuário
+    user_ids = list({item["user_id"] for item in dataset})
+    random.shuffle(user_ids)
+    n_users = len(user_ids)
+    train_users = set(user_ids[: int(0.7 * n_users)])
+    val_users = set(user_ids[int(0.7 * n_users): int(0.85 * n_users)])
+    test_users = set(user_ids[int(0.85 * n_users):])
+    train = [item for item in dataset if item["user_id"] in train_users]
+    val = [item for item in dataset if item["user_id"] in val_users]
+    test = [item for item in dataset if item["user_id"] in test_users]
 
     train_ds = KTTopicH2Dataset(train, h2_map)
     val_ds = KTTopicH2Dataset(val, h2_map)

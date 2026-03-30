@@ -332,7 +332,7 @@ def validate_questions(questions_df: pd.DataFrame, tree_df: pd.DataFrame) -> dic
         # opcional: debug
         print(pd.DataFrame(mismatched_paths[:10]))
 
-        return report
+    return report
 
 
 # ============================================================

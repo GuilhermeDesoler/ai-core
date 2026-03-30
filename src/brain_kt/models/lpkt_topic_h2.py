@@ -31,11 +31,13 @@ class LPKTTopicH2Model(nn.Module):
 
     def forward(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
         h2 = batch["h2_ids"]
+        nh2 = batch["next_h2_ids"]
         c = batch["corrects"].unsqueeze(-1)
         dt = batch["delta_ts"].unsqueeze(-1)
         tr = batch["time_responses"].unsqueeze(-1)
 
         h2_emb = self.h2_embedding(h2)
+        nh2_emb = self.h2_embedding(nh2)
 
         interaction = torch.cat([h2_emb, c], dim=-1)
         interaction_state = self.interaction_proj(interaction)
@@ -59,7 +61,7 @@ class LPKTTopicH2Model(nn.Module):
 
             hidden = forget_gate * hidden + learn_gate * learn_candidate
 
-            out_in = torch.cat([hidden, h2_emb[:, t, :], t_t], dim=-1)
+            out_in = torch.cat([hidden, nh2_emb[:, t, :], t_t], dim=-1)
             outputs.append(self.output(out_in).squeeze(-1))
 
         return torch.stack(outputs, dim=1)
