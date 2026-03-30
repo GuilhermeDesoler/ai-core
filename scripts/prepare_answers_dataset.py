@@ -32,24 +32,12 @@ def main() -> None:
     answers_df = load_answers_json(RAW_ANSWERS_PATH)
     print(f"Raw rows: {len(answers_df)}")
 
-    null_skill_df = answers_df[answers_df["skill_id"].isna()]
+    prepared_df, report = build_answers_dataset(
+        answers_df=answers_df,
+        min_interactions=2,
+    )
 
-    print(f"Total rows com skill_id null: {len(null_skill_df)}")
-
-    if len(null_skill_df) > 0:
-        print("\nExemplos de linhas com problema:")
-        print(null_skill_df.head(10).to_dict(orient="records"))
-
-        print("\nUser IDs afetados:")
-        affected_users = null_skill_df["user_id"].unique()
-        print(affected_users[:20])  # primeiros 20
-
-        print(f"\nTotal de usuários afetados: {len(affected_users)}")
-
-        prepared_df, report = build_answers_dataset(
-            answers_df=answers_df,
-            min_interactions=2,
-        )
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     OUTPUT_PATH = OUTPUT_DIR / "answers_prepared.csv"
     prepared_df.to_csv(OUTPUT_PATH, index=False)

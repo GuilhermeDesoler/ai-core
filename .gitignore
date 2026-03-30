@@ -3,4 +3,9 @@ data/processed/
 artifacts/
 *.parquet
 *.csv
-.venv
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+data/processed/
+artifacts/
+.venv/
