@@ -20,7 +20,7 @@ def extract_h2_label(subject_accumulated_names: list[str]) -> str | None:
 
 
 def main() -> None:
-    with INPUT_PATH.open("r", encoding="utf-8") as f:
+    with INPUT_PATH.open("r", encoding="latin-1") as f:
         questions = json.load(f)
 
     skill_to_h2: dict[str, str] = {}
@@ -28,7 +28,9 @@ def main() -> None:
 
     for row in questions:
         subject_id = row.get("subjectId") or row.get("subject_id")
-        accumulated_names = row.get("subjectAccumulatedNames") or row.get("subject_accumulated_names")
+        accumulated_names = row.get("subjectAccumulatedNames") or row.get(
+            "subject_accumulated_names"
+        )
 
         if not subject_id:
             skipped += 1
