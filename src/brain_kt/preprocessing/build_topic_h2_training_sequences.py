@@ -14,7 +14,6 @@ def map_user_sequences_to_h2(
         mapped_skill_ids: list[str] = []
         mapped_h2_ids: list[str] = []
         mapped_corrects: list[int] = []
-        mapped_timestamps: list[int] = []
         mapped_delta_ts: list[int | float] = []
         mapped_time_responses: list[int | float] = []
 
@@ -27,7 +26,6 @@ def map_user_sequences_to_h2(
             mapped_skill_ids.append(skill_id)
             mapped_h2_ids.append(h2_id)
             mapped_corrects.append(seq["corrects"][i])
-            mapped_timestamps.append(seq["timestamps"][i])
             mapped_delta_ts.append(seq["delta_ts"][i])
             mapped_time_responses.append(seq["time_responses"][i])
 
@@ -39,7 +37,6 @@ def map_user_sequences_to_h2(
                     "skill_ids": mapped_skill_ids,
                     "h2_ids": mapped_h2_ids,
                     "corrects": mapped_corrects,
-                    "timestamps": mapped_timestamps,
                     "delta_ts": mapped_delta_ts,
                     "time_responses": mapped_time_responses,
                 }
