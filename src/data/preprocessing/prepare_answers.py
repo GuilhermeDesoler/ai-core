@@ -25,7 +25,6 @@ def add_delta_t(answers_df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
-
 def filter_min_interactions(
     answers_df: pd.DataFrame,
     min_interactions: int = 2,
@@ -38,3 +37,31 @@ def filter_min_interactions(
     df = df[df["user_id"].isin(valid_users)].reset_index(drop=True)
 
     return df
+
+def drop_invalid_answers(answers_df: pd.DataFrame) -> pd.DataFrame:
+    df = answers_df.copy()
+
+    initial_rows = len(df)
+
+    df = df.dropna(subset=[
+        "user_id",
+        "question_id",
+        "skill_id",
+        "correct",
+        "timestamp",
+        "time_response",
+    ])
+
+    df = df[df["timestamp"] >= 0]
+    df = df[df["time_response"] >= 0]
+
+    before_dedup = len(df)
+    df = df.drop_duplicates().reset_index(drop=True)
+    dropped_duplicates = before_dedup - len(df)
+
+    dropped_rows = initial_rows - len(df)
+
+    print(f"Dropped {dropped_rows} invalid rows total")
+    print(f"Removed {dropped_duplicates} exact duplicate rows")
+
+    return df.reset_index(drop=True)

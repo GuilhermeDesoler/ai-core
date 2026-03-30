@@ -1,14 +1,20 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pandas as pd
 
-from data.pipelines import build_answers_dataset
+from data.pipelines.build_answers_dataset import build_answers_dataset
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_PATH = PROJECT_ROOT / "src"
+
+if str(SRC_PATH) not in sys.path:
+    sys.path.insert(0, str(SRC_PATH))
+
 RAW_ANSWERS_PATH = PROJECT_ROOT / "data" / "raw" / "answers.json"
 OUTPUT_DIR = PROJECT_ROOT / "data" / "processed" / "dataset"
 OUTPUT_PATH = OUTPUT_DIR / "answers_prepared.parquet"
@@ -27,10 +33,24 @@ def main() -> None:
     answers_df = load_answers_json(RAW_ANSWERS_PATH)
     print(f"Raw rows: {len(answers_df)}")
 
-    prepared_df, report = build_answers_dataset(
-        answers_df=answers_df,
-        min_interactions=2,
-    )
+    null_skill_df = answers_df[answers_df["skill_id"].isna()]
+
+    print(f"Total rows com skill_id null: {len(null_skill_df)}")
+
+    if len(null_skill_df) > 0:
+        print("\nExemplos de linhas com problema:")
+        print(null_skill_df.head(10).to_dict(orient="records"))
+
+        print("\nUser IDs afetados:")
+        affected_users = null_skill_df["user_id"].unique()
+        print(affected_users[:20])  # primeiros 20
+
+        print(f"\nTotal de usuários afetados: {len(affected_users)}")
+
+        prepared_df, report = build_answers_dataset(
+            answers_df=answers_df,
+            min_interactions=2,
+        )
 
     OUTPUT_PATH = OUTPUT_DIR / "answers_prepared.csv"
     prepared_df.to_csv(OUTPUT_PATH, index=False)
