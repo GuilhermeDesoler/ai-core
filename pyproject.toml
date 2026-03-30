@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "brain-kt"
 version = "0.1.0"
 description = "Knowledge Tracing engine"
-requires-python = ">=3.10"
+requires-python = ">=3.11.*"
 dependencies = [
     "numpy",
     "pandas",
