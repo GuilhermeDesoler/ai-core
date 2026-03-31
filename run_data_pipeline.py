@@ -6,7 +6,8 @@ Prepara os dados brutos e constrói as sequências de usuários.
 Etapas:
   1. prepare_answers_dataset  →  data/processed/dataset/answers_prepared.csv
   2. build_user_sequences     →  data/processed/sequences/user_sequences.json
-  3. build_skill_to_h2        →  data/processed/mappings/skill_to_h2.json
+  3. build_skill_hierarchy    →  data/processed/mappings/skill_to_h2.json
+                                  data/processed/mappings/skill_to_h3.json
 
 Uso:
   python run_data_pipeline.py
@@ -59,8 +60,8 @@ def main() -> None:
         SCRIPTS / "build_user_sequences.py",
     )
     _step(
-        "3/3  Construindo mapeamento skill → H2",
-        SCRIPTS / "build_skill_to_h2_from_raw_json.py",
+        "3/3  Construindo mapeamentos hierárquicos skill → H2 / H3 (via tree)",
+        SCRIPTS / "build_skill_hierarchy_from_tree.py",
     )
 
     print(f"\n{'='*60}")

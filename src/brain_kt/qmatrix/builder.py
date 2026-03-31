@@ -151,7 +151,10 @@ def load_questions(questions_json_path: str | Path) -> pd.DataFrame:
     Supports JSON array payload or newline-delimited JSON if the file was preprocessed.
     """
     path = Path(questions_json_path)
-    text = path.read_text(encoding="utf-8").strip()
+    try:
+        text = path.read_text(encoding="utf-8").strip()
+    except UnicodeDecodeError:
+        text = path.read_text(encoding="latin-1").strip()
 
     # Try standard JSON first
     try:

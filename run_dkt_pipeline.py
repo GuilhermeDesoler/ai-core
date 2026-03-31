@@ -8,6 +8,7 @@ Pré-requisito: run_data_pipeline.py já executado.
 Etapas:
   1. train_eval_dkt_next_item   →  artifacts/runs/
   2. train_eval_dkt_topic_h2   →  artifacts/runs_h2/
+  3. train_eval_dkt_topic_h3   →  artifacts/runs_h3/
 
 Uso:
   python run_dkt_pipeline.py
@@ -26,6 +27,7 @@ SCRIPTS = PROJECT_ROOT / "scripts"
 _REQUIRED = [
     PROJECT_ROOT / "data" / "processed" / "sequences" / "user_sequences.json",
     PROJECT_ROOT / "data" / "processed" / "mappings" / "skill_to_h2.json",
+    PROJECT_ROOT / "data" / "processed" / "mappings" / "skill_to_h3.json",
 ]
 
 
@@ -69,12 +71,16 @@ def main() -> None:
     total = time.perf_counter()
 
     _step(
-        "1/2  DKT Next-Item",
+        "1/3  DKT Next-Item",
         SCRIPTS / "train_eval_dkt_next_item.py",
     )
     _step(
-        "2/2  DKT Topic H2",
+        "2/3  DKT Topic H2",
         SCRIPTS / "train_eval_dkt_topic_h2.py",
+    )
+    _step(
+        "3/3  DKT Topic H3",
+        SCRIPTS / "train_eval_dkt_topic_h3.py",
     )
 
     print(f"\n{'='*60}")
