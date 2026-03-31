@@ -6,13 +6,15 @@ Executa o pipeline completo do zero: dados → DKT → LPKT.
 Etapas:
   [DATA]  1. prepare_answers_dataset
           2. build_user_sequences
-          3. build_skill_to_h2
+          3. build_skill_hierarchy_from_tree  (→ skill_to_h2.json + skill_to_h3.json)
 
   [DKT]   4. train_eval_dkt_next_item
           5. train_eval_dkt_topic_h2
+          6. train_eval_dkt_topic_h3
 
-  [LPKT]  6. train_eval_lpkt_next_item
-          7. train_eval_lpkt_topic_h2
+  [LPKT]  7. train_eval_lpkt_next_item
+          8. train_eval_lpkt_topic_h2
+          9. train_eval_lpkt_topic_h3
 
 Uso:
   python run_full_pipeline.py
