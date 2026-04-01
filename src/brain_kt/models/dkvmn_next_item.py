@@ -29,7 +29,7 @@ class DKVMNNextItemModel(nn.Module):
         self.init_value_memory = nn.Parameter(torch.randn(memory_size, value_dim) * 0.1)
 
         self.interaction_proj = nn.Sequential(
-            nn.Linear(key_dim * 2 + 3, value_dim),
+            nn.Linear(key_dim + 3, value_dim),
             nn.ReLU(),
             nn.Dropout(dropout),
         )
@@ -37,7 +37,7 @@ class DKVMNNextItemModel(nn.Module):
         self.add_layer = nn.Linear(value_dim, value_dim)
 
         self.output = nn.Sequential(
-            nn.Linear(value_dim + key_dim * 2, value_dim),
+            nn.Linear(value_dim + key_dim, value_dim),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(value_dim, 1),
@@ -52,7 +52,12 @@ class DKVMNNextItemModel(nn.Module):
         # value_memory: [B, M, V], weights: [B, M]
         return torch.sum(value_memory * weights.unsqueeze(-1), dim=1)
 
-    def _write(self, value_memory: torch.Tensor, weights: torch.Tensor, interaction: torch.Tensor) -> torch.Tensor:
+    def _write(
+        self,
+        value_memory: torch.Tensor,
+        weights: torch.Tensor,
+        interaction: torch.Tensor,
+    ) -> torch.Tensor:
         erase = torch.sigmoid(self.erase_layer(interaction))
         add = torch.tanh(self.add_layer(interaction))
 
@@ -72,14 +77,18 @@ class DKVMNNextItemModel(nn.Module):
         batch_size, seq_len = q.shape
         device = q.device
 
-        value_memory = self.init_value_memory.unsqueeze(0).repeat(batch_size, 1, 1).to(device)
+        value_memory = (
+            self.init_value_memory.unsqueeze(0).repeat(batch_size, 1, 1).to(device)
+        )
         logits_steps = []
 
         for t in range(seq_len):
             current_query = self.q_emb(q[:, t]) + self.s_emb(s[:, t])
             next_query = self.next_q_emb(nq[:, t]) + self.next_s_emb(ns[:, t])
 
-            interaction_input = torch.cat([current_query, c[:, t], dt[:, t], tr[:, t]], dim=-1)
+            interaction_input = torch.cat(
+                [current_query, c[:, t], dt[:, t], tr[:, t]], dim=-1
+            )
             interaction_state = self.interaction_proj(interaction_input)
 
             write_weights = self._attention(current_query)

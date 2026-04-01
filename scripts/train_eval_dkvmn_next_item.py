@@ -17,7 +17,9 @@ from brain_kt.preprocessing.build_next_item_training_sequences import (
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SEQUENCES_PATH = PROJECT_ROOT / "data" / "processed" / "sequences" / "user_sequences.json"
+SEQUENCES_PATH = (
+    PROJECT_ROOT / "data" / "processed" / "sequences" / "user_sequences.json"
+)
 ARTIFACTS = PROJECT_ROOT / "artifacts" / "runs_dkvmn"
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -89,7 +91,9 @@ def main():
 
         val_loss = evaluate(model, val_loader, criterion)
 
-        print(f"Epoch {epoch+1} | Train Loss: {total_loss/len(train_loader):.4f} | Val Loss: {val_loss:.4f}")
+        print(
+            f"Epoch {epoch+1} | Train Loss: {total_loss/len(train_loader):.4f} | Val Loss: {val_loss:.4f}"
+        )
 
     test_loss = evaluate(model, test_loader, criterion)
     print(f"Test Loss: {test_loss:.4f}")
