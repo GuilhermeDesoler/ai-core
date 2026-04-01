@@ -15,7 +15,9 @@ from sklearn.metrics import roc_auc_score
 
 from brain_kt.dataset.kt_topic_h2_dataset import KTTopicH2Dataset
 from brain_kt.models.lpkt_topic_h2 import LPKTTopicH2Model
-from brain_kt.preprocessing.build_topic_h2_training_sequences import build_h2_topic_training_sequences
+from brain_kt.preprocessing.build_topic_h2_training_sequences import (
+    build_h2_topic_training_sequences,
+)
 from brain_kt.utils.experiment_tracking import create_run_dir, save_json
 
 INPUT_PATH = PROJECT_ROOT / "data" / "processed" / "sequences" / "user_sequences.json"
@@ -39,14 +41,23 @@ def compute_auc(probs, targets):
     return float(roc_auc_score(targets, probs))
 
 
-def evaluate(model, loader, device):
+def evaluate(model, loader, device, criterion):
     model.eval()
     all_probs, all_targets = [], []
+    total_loss = 0.0
+    total_weight = 0.0
 
     with torch.no_grad():
         for batch in loader:
             batch = {k: v.to(device) for k, v in batch.items()}
             logits = model(batch)
+            loss = criterion(logits, batch["targets"])
+            batch_loss = (loss * batch["mask"]).sum() / batch["mask"].sum()
+
+            weight = batch["mask"].sum().item()
+            total_loss += batch_loss.item() * weight
+            total_weight += weight
+
             probs = torch.sigmoid(logits)
             mask = batch["mask"]
             all_probs.append(probs[mask])
@@ -56,8 +67,9 @@ def evaluate(model, loader, device):
     targets = torch.cat(all_targets)
     auc = compute_auc(probs, targets)
     acc = ((probs > 0.5) == targets).float().mean().item()
+    avg_loss = total_loss / max(total_weight, 1.0)
 
-    return auc, acc
+    return avg_loss, auc, acc
 
 
 def build_h2_map(data):
@@ -82,13 +94,13 @@ def main():
     all_h2 = [h for item in dataset for h in item["input"]["h2_ids"]]
     h2_map = build_h2_map(all_h2)
 
-    # Student-level split: evita data leakage entre janelas do mesmo usuário
     user_ids = list({item["user_id"] for item in dataset})
     random.shuffle(user_ids)
     n_users = len(user_ids)
     train_users = set(user_ids[: int(0.7 * n_users)])
-    val_users = set(user_ids[int(0.7 * n_users): int(0.85 * n_users)])
-    test_users = set(user_ids[int(0.85 * n_users):])
+    val_users = set(user_ids[int(0.7 * n_users) : int(0.85 * n_users)])
+    test_users = set(user_ids[int(0.85 * n_users) :])
+
     train = [item for item in dataset if item["user_id"] in train_users]
     val = [item for item in dataset if item["user_id"] in val_users]
     test = [item for item in dataset if item["user_id"] in test_users]
@@ -109,7 +121,6 @@ def main():
         optimizer, mode="max", factor=0.5, patience=2
     )
 
-    # Weighted BCE: corrige desbalanceamento (~70% correto)
     all_targets = [c for item in train for c in item["target"]["next_corrects"]]
     n_pos = sum(all_targets)
     n_neg = len(all_targets) - n_pos
@@ -118,46 +129,73 @@ def main():
 
     run_dir = create_run_dir(RUNS_DIR)
 
-    best_auc = 0
+    best_val_auc = 0.0
+    best_val_loss = float("inf")
     no_improve = 0
 
     for epoch in range(EPOCHS):
         model.train()
+        train_loss_sum = 0.0
+        train_weight = 0.0
+
         for batch in train_loader:
             batch = {k: v.to(device) for k, v in batch.items()}
             logits = model(batch)
             loss = criterion(logits, batch["targets"])
-            loss = (loss * batch["mask"]).sum() / batch["mask"].sum()
+            batch_loss = (loss * batch["mask"]).sum() / batch["mask"].sum()
 
             optimizer.zero_grad()
-            loss.backward()
+            batch_loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
 
-        val_auc, val_acc = evaluate(model, val_loader, device)
-        scheduler.step(val_auc)
-        print(f"Epoch {epoch+1}/{EPOCHS} | Val AUC: {val_auc:.4f} | Val Acc: {val_acc:.4f} | LR: {optimizer.param_groups[0]['lr']:.2e}")
+            weight = batch["mask"].sum().item()
+            train_loss_sum += batch_loss.item() * weight
+            train_weight += weight
 
-        if val_auc > best_auc:
-            best_auc = val_auc
+        train_loss = train_loss_sum / max(train_weight, 1.0)
+        val_loss, val_auc, val_acc = evaluate(model, val_loader, device, criterion)
+        scheduler.step(val_auc)
+
+        print(
+            f"Epoch {epoch+1}/{EPOCHS} | "
+            f"Train Loss: {train_loss:.4f} | "
+            f"Val Loss: {val_loss:.4f} | "
+            f"Val AUC: {val_auc:.4f} | "
+            f"Val Acc: {val_acc:.4f} | "
+            f"LR: {optimizer.param_groups[0]['lr']:.2e}"
+        )
+
+        if val_auc > best_val_auc:
+            best_val_auc = val_auc
+            best_val_loss = val_loss
             no_improve = 0
             torch.save(model.state_dict(), run_dir / "model.pt")
         else:
             no_improve += 1
             if no_improve >= PATIENCE:
-                print(f"Early stopping na epoch {epoch+1} (sem melhora há {PATIENCE} epochs)")
+                print(
+                    f"Early stopping na epoch {epoch+1} (sem melhora há {PATIENCE} epochs)"
+                )
                 break
 
     model.load_state_dict(torch.load(run_dir / "model.pt", weights_only=True))
-    test_auc, test_acc = evaluate(model, test_loader, device)
+    test_loss, test_auc, test_acc = evaluate(model, test_loader, device, criterion)
 
-    save_json(run_dir / "metrics.json", {
-        "best_val_auc": best_auc,
-        "test_auc": test_auc,
-        "test_acc": test_acc,
-    })
+    save_json(
+        run_dir / "metrics.json",
+        {
+            "best_val_auc": best_val_auc,
+            "best_val_loss": best_val_loss,
+            "test_loss": test_loss,
+            "test_auc": test_auc,
+            "test_acc": test_acc,
+        },
+    )
 
-    print(f"Test AUC: {test_auc:.4f} | Test Acc: {test_acc:.4f}")
+    print(
+        f"Test Loss: {test_loss:.4f} | Test AUC: {test_auc:.4f} | Test Acc: {test_acc:.4f}"
+    )
     print(f"Saved run to {run_dir}")
 
 
