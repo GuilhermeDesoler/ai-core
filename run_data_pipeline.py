@@ -57,7 +57,7 @@ def main() -> None:
     )
     _step(
         "2/3  Construindo sequências de usuários",
-        SCRIPTS / "build_user_sequences.py",
+        SCRIPTS / "build_user_session_sequences.py",
     )
     _step(
         "3/3  Construindo mapeamentos hierárquicos skill → H2 / H3 (via tree)",

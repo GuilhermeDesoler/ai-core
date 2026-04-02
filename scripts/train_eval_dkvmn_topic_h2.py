@@ -4,6 +4,7 @@ import json
 import random
 import sys
 from pathlib import Path
+from tkinter.filedialog import test
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(PROJECT_ROOT / "src"))
@@ -71,11 +72,15 @@ def build_h2_map(data):
 
 def main():
     set_seed()
+    print("\n[STEP 1] Carregando dados...")
     with open(INPUT_PATH) as f:
         user_sequences = json.load(f)
     with open(H2_MAP_PATH) as f:
         skill_to_h2 = json.load(f)
+    print("[OK] Dados carregados")
+    print("\n[STEP 2] Construindo dataset...")
     dataset = build_h2_topic_training_sequences(user_sequences, skill_to_h2, max_seq_len=50, stride=25)
+    print(f"[OK] Dataset pronto | tamanho: {len(dataset)}")
     all_h2 = [h for item in dataset for h in item["input"]["h2_ids"]]
     h2_map = build_h2_map(all_h2)
     user_ids = list({item["user_id"] for item in dataset})
@@ -87,6 +92,8 @@ def main():
     train = [item for item in dataset if item["user_id"] in train_users]
     val = [item for item in dataset if item["user_id"] in val_users]
     test = [item for item in dataset if item["user_id"] in test_users]
+    print("\n[STEP 3] Fazendo split train/val/test...")
+    print(f"[OK] Train: {len(train)} | Val: {len(val)} | Test: {len(test)}")
     train_ds = KTTopicH2Dataset(train, h2_map, max_seq_len=50)
     val_ds = KTTopicH2Dataset(val, h2_map, max_seq_len=50)
     test_ds = KTTopicH2Dataset(test, h2_map, max_seq_len=50)
@@ -103,6 +110,7 @@ def main():
     pos_weight = torch.tensor([n_neg / max(n_pos, 1)], device=device)
     criterion = nn.BCEWithLogitsLoss(reduction="none", pos_weight=pos_weight)
     run_dir = create_run_dir(RUNS_DIR)
+    print("\n[STEP 4] Iniciando treino...")
     history = []
     best_val_auc = 0.0
     best_val_loss = float("inf")
@@ -136,22 +144,25 @@ def main():
         val_loss, val_auc, val_acc = evaluate(model, val_loader, device, criterion)
         scheduler.step(val_auc)
         history.append({"epoch": epoch+1, "train_loss": train_loss, "train_auc": train_auc, "train_acc": train_acc, "val_loss": val_loss, "val_auc": val_auc, "val_acc": val_acc, "lr": optimizer.param_groups[0]['lr']})
-        print(f"Epoch {epoch+1}/{EPOCHS} | Train Loss: {train_loss:.4f} | Train AUC: {train_auc:.4f} | Val Loss: {val_loss:.4f} | Val AUC: {val_auc:.4f} | Val Acc: {val_acc:.4f} | LR: {optimizer.param_groups[0]['lr']:.2e}")
+        print(f"[EPOCH {epoch+1}/{EPOCHS}] Train Loss: {train_loss:.4f} | Train AUC: {train_auc:.4f} | Val Loss: {val_loss:.4f} | Val AUC: {val_auc:.4f}")
         if val_auc > best_val_auc:
             best_val_auc = val_auc
             best_val_loss = val_loss
             no_improve = 0
             torch.save(model.state_dict(), run_dir / "model.pt")
+            print(f"[BEST MODEL] Epoch {epoch+1} | Val AUC: {val_auc:.4f}")
         else:
             no_improve += 1
             if no_improve >= PATIENCE:
                 break
+    print("\n[STEP 5] Avaliando no teste...")
     model.load_state_dict(torch.load(run_dir / "model.pt", weights_only=True))
     test_loss, test_auc, test_acc = evaluate(model, test_loader, device, criterion)
     save_json(run_dir / "metrics.json", {"best_val_auc": best_val_auc, "best_val_loss": best_val_loss, "test_loss": test_loss, "test_auc": test_auc, "test_acc": test_acc})
     save_json(run_dir / "history.json", history)
     print(f"Test Loss: {test_loss:.4f} | Test AUC: {test_auc:.4f} | Test Acc: {test_acc:.4f}")
     print(f"Saved run to {run_dir}")
+    print("\n[FINALIZADO]")
 
 
 if __name__ == "__main__":
