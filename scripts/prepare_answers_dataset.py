@@ -34,7 +34,7 @@ def main() -> None:
 
     prepared_df, report = build_answers_dataset(
         answers_df=answers_df,
-        min_interactions=2,
+        min_interactions=10,
     )
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

@@ -13,11 +13,13 @@ if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
 INPUT_CSV = PROJECT_ROOT / "data" / "processed" / "dataset" / "answers_prepared.csv"
-INPUT_PARQUET = PROJECT_ROOT / "data" / "processed" / "dataset" / "answers_prepared.parquet"
+INPUT_PARQUET = (
+    PROJECT_ROOT / "data" / "processed" / "dataset" / "answers_prepared.parquet"
+)
 OUTPUT_PATH = PROJECT_ROOT / "data" / "processed" / "sequences" / "user_sequences.json"
 
 SESSION_GAP_MINUTES = 60
-MIN_SESSION_LEN = 2
+MIN_SESSION_LEN = 3
 
 
 def load_answers() -> pd.DataFrame:
@@ -43,7 +45,9 @@ def build_user_session_sequences(
 
     sequences = []
 
-    for (user_id, session_idx), group in df.groupby(["user_id", "session_idx"], sort=False):
+    for (user_id, session_idx), group in df.groupby(
+        ["user_id", "session_idx"], sort=False
+    ):
         group = group.sort_values("timestamp").copy()
         if len(group) < min_session_len:
             continue
