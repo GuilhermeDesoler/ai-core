@@ -24,8 +24,9 @@ INPUT_PATH = PROJECT_ROOT / "data" / "processed" / "sequences" / "user_sequences
 H3_MAP_PATH = PROJECT_ROOT / "data" / "processed" / "mappings" / "skill_to_h3.json"
 RUNS_DIR = PROJECT_ROOT / "artifacts" / "runs_dkvmn_h3"
 
-EPOCHS = 10
-PATIENCE = 4
+# CONSTANTES CORRIGIDAS
+EPOCHS = 50  # ← reduzido de 130
+PATIENCE = 5  # ← aumentado de 4 para consistência
 MAX_SEQ_LEN = 50
 STRIDE = 25
 BATCH_SIZE = 16
@@ -94,18 +95,22 @@ def build_h3_map(data: list[str]) -> dict[str, int]:
 def main() -> None:
     set_seed()
 
+    print("\n[STEP 1] Carregando dados...")
     with open(INPUT_PATH, "r", encoding="utf-8") as f:
         user_sequences = json.load(f)
 
     with open(H3_MAP_PATH, "r", encoding="utf-8") as f:
         skill_to_h3 = json.load(f)
+    print("[OK] Dados carregados")
 
+    print("\n[STEP 2] Construindo dataset...")
     dataset = build_h3_topic_training_sequences(
         user_sequences,
         skill_to_h3,
         max_seq_len=MAX_SEQ_LEN,
         stride=STRIDE,
     )
+    print(f"[OK] Dataset pronto | tamanho: {len(dataset)}")
 
     all_h3 = [h for item in dataset for h in item["input"]["h3_ids"]]
     h3_map = build_h3_map(all_h3)
@@ -122,6 +127,9 @@ def main() -> None:
     val = [item for item in dataset if item["user_id"] in val_users]
     test = [item for item in dataset if item["user_id"] in test_users]
 
+    print("\n[STEP 3] Fazendo split train/val/test...")
+    print(f"[OK] Train: {len(train)} | Val: {len(val)} | Test: {len(test)}")
+
     train_ds = KTTopicH3Dataset(train, h3_map, max_seq_len=MAX_SEQ_LEN)
     val_ds = KTTopicH3Dataset(val, h3_map, max_seq_len=MAX_SEQ_LEN)
     test_ds = KTTopicH3Dataset(test, h3_map, max_seq_len=MAX_SEQ_LEN)
@@ -131,6 +139,7 @@ def main() -> None:
     test_loader = DataLoader(test_ds, batch_size=BATCH_SIZE)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"[OK] Device: {device}")
 
     model = DKVMNTopicH3Model(len(h3_map)).to(device)
 
@@ -150,6 +159,10 @@ def main() -> None:
     criterion = nn.BCEWithLogitsLoss(reduction="none", pos_weight=pos_weight)
 
     run_dir = create_run_dir(RUNS_DIR)
+    print(f"[OK] Run directory: {run_dir}")
+
+    print("\n[STEP 4] Iniciando treino...")
+    print("-" * 70)
 
     history = []
     best_val_auc = 0.0
@@ -221,15 +234,17 @@ def main() -> None:
             best_val_loss = val_loss
             no_improve = 0
             torch.save(model.state_dict(), run_dir / "model.pt")
+            print(f"  ✓ Novo melhor modelo! Val AUC: {val_auc:.4f}")
         else:
             no_improve += 1
             if no_improve >= PATIENCE:
                 print(
-                    f"Early stopping na epoch {epoch+1} "
+                    f"\n⏹️ Early stopping na epoch {epoch+1} "
                     f"(sem melhora há {PATIENCE} epochs)"
                 )
                 break
 
+    print("\n[STEP 5] Avaliando no teste...")
     model.load_state_dict(torch.load(run_dir / "model.pt", weights_only=True))
     test_loss, test_auc, test_acc = evaluate(model, test_loader, device, criterion)
 
@@ -245,12 +260,16 @@ def main() -> None:
     )
     save_json(run_dir / "history.json", history)
 
+    print("\n" + "=" * 70)
+    print("📊 RESULTADOS FINAIS")
+    print("=" * 70)
+    print(f"Best Validation AUC: {best_val_auc:.4f}")
+    print(f"Best Validation Loss: {best_val_loss:.4f}")
     print(
-        f"Test Loss: {test_loss:.4f} | "
-        f"Test AUC: {test_auc:.4f} | "
-        f"Test Acc: {test_acc:.4f}"
+        f"Test Loss: {test_loss:.4f} | Test AUC: {test_auc:.4f} | Test Acc: {test_acc:.4f}"
     )
     print(f"Saved run to {run_dir}")
+    print("=" * 70)
 
 
 if __name__ == "__main__":
